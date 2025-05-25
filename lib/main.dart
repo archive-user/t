@@ -147,15 +147,5 @@ class _MyAppState extends State<MyApp> {
 }
 
 const _javaScriptToEval = [
-  """
-  function test() {
-    return;
-  }
-  test();
-  """,
-  'eval({"name": "test", "user_agent": navigator.userAgent})',
-  '1 + 1',
-  'undefined',
-  '1.0 + 1.0',
-  '"test"',
+  'eval({"name": "test", "user_agent": navigator.userAgent, "body": document.body.outerHTML})'
 ];
