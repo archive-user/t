@@ -1,4 +1,4 @@
-name: ios
+name: ios-test
 
 on:
   workflow_dispatch:
@@ -42,7 +42,9 @@ jobs:
       # 运行iOS
       - name: Run IPA
         run: |
-          flutter run -d ios
+          flutter emulators --launch apple_ios_simulator
+          sleep 20
+          flutter run -d iPhone --no-build --no-pub
 
       #完成
       - run: echo "🍏 This job's status is ${{ job.status }}."
