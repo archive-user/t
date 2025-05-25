@@ -5,6 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 void main() {
+  if (runWebViewTitleBarWidget([])) {
+    return;
+  }
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
 }
 
@@ -37,30 +41,32 @@ class _WebViewExampleState extends State<WebViewExample> {
     super.initState();
 
     if (Platform.isLinux) {
-      final webview = await WebviewWindow.create(
-        configuration: CreateConfiguration(
-          titleBarTopPadding: Platform.isMacOS ? 20 : 0,
-        ),
-      );
-      webview
-        ..setBrightness(Brightness.dark)
-        ..setApplicationNameForUserAgent(" WebviewExample/1.0.0")
-        ..launch('https://flutter.dev/')
-        ..onClose.whenComplete(() {
-          debugPrint("on close");
-        });
-      await Future.delayed(const Duration(seconds: 2));
-      const javaScriptToEval = [
-        'eval({"name": "test", "user_agent": navigator.userAgent, "body": document.body.outerHTML})'
-      ];
-      for (final javaScript in javaScriptToEval) {
-        try {
-          final ret = await webview.evaluateJavaScript(javaScript);
-          debugPrint('evaluateJavaScript: $ret');
-        } catch (e) {
-          debugPrint('evaluateJavaScript error: $e \n $javaScript');
+      WebviewWindow.isWebviewAvailable().then((value) async {
+        final webview = await WebviewWindow.create(
+          configuration: CreateConfiguration(
+            titleBarTopPadding: Platform.isMacOS ? 20 : 0,
+          ),
+        );
+        webview
+          ..setBrightness(Brightness.dark)
+          ..setApplicationNameForUserAgent(" WebviewExample/1.0.0")
+          ..launch('https://flutter.dev/')
+          ..onClose.whenComplete(() {
+            debugPrint("on close");
+          });
+        await Future.delayed(const Duration(seconds: 2));
+        const javaScriptToEval = [
+          'eval({"name": "test", "user_agent": navigator.userAgent, "body": document.body.outerHTML})'
+        ];
+        for (final javaScript in javaScriptToEval) {
+          try {
+            final ret = await webview.evaluateJavaScript(javaScript);
+            debugPrint('evaluateJavaScript: $ret');
+          } catch (e) {
+            debugPrint('evaluateJavaScript error: $e \n $javaScript');
+          }
         }
-      }
+      });
     } else {
       late final WebViewController controller;
       controller = WebViewController()
