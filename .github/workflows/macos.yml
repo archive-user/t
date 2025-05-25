@@ -1,0 +1,92 @@
+name: macos
+
+on:
+  workflow_dispatch:
+    inputs:
+      command:
+        description: 'Run custom command before building'
+        required: false
+        type: string
+      github_release:
+        description: 'Upload to Github release'
+        required: false
+        default: false
+        type: boolean
+jobs:
+  # 打包MacOS
+  build-macos:
+    runs-on: macos-latest
+    permissions: write-all
+    steps:
+      #签出代码 
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      #设置Flutter
+      - name: Flutter action
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version-file: pubspec.yaml
+          cache: true
+
+      # 打开MAC Desktop支持
+      - name: Enable Flutter Desktop
+        run: flutter config --enable-macos-desktop
+
+      #更新Flutter的packages
+      - name: Restore packages
+        run: |
+          flutter pub get
+
+      # 安装appdmg npm install -g appdmg
+      - name: Install appdmg
+        run: npm install -g appdmg
+
+      # 设置flutter_distributor环境
+      - name: Install flutter_distributor
+        run: dart pub global activate flutter_distributor
+
+      #读取版本信息
+      - name: Read version
+        id: version
+        uses: juliangruber/read-file-action@v1
+        with:
+          path: app_version.json
+      - name: Echo version
+        run: echo "${{ fromJson(steps.version.outputs.content).version }}"
+      - name: Echo version content
+        run: echo "${{ fromJson(steps.version.outputs.content).version_desc }}"
+
+      # 打包MAC
+      - name: Build MacOS
+        run: |
+          flutter_distributor package --platform macos --targets dmg,zip --skip-clean
+
+      - name: Rename DMG
+        run: |
+          for dmg_file in dist/*/*.dmg; do
+            mv "$dmg_file" "$(dirname "$dmg_file")/livech-macos-${{ fromJson(steps.version.outputs.content).version }}.dmg"
+          done
+      - name: Rename ZIP
+        run: |
+          for zip_file in dist/*/*.zip; do
+            mv "$zip_file" "$(dirname "$zip_file")/livech-macos-${{ fromJson(steps.version.outputs.content).version }}.zip"
+          done
+
+      #上传至Release
+      - name: Upload Release
+        uses: softprops/action-gh-release@v1
+        if: ${{ github.event.inputs.github_release == 'true' }}
+        with:
+          draft: true
+          prerelease: false
+          name: "${{ fromJson(steps.version.outputs.content).version }}"
+          tag_name: "${{ fromJson(steps.version.outputs.content).version }}"
+          body: "${{ fromJson(steps.version.outputs.content).version_desc }}"
+          files: |
+            dist/*/*.dmg
+            dist/*/*.zip
+      #完成
+      - run: echo "🍏 This job's status is ${{ job.status }}."

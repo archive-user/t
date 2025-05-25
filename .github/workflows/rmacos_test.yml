@@ -1,0 +1,48 @@
+name: macos
+
+on:
+  workflow_dispatch:
+    inputs:
+      command:
+        description: 'Run custom command before building'
+        required: false
+        type: string
+jobs:
+  # MacOS
+  test-macos:
+    runs-on: macos-latest
+    permissions: write-all
+    steps:
+      #签出代码 
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      #设置Flutter
+      - name: Flutter action
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version-file: pubspec.yaml
+          cache: true
+
+      # 打开MAC Desktop支持
+      - name: Enable Flutter Desktop
+        run: flutter config --enable-macos-desktop
+
+      #更新Flutter的packages
+      - name: Restore packages
+        run: |
+          flutter pub get
+
+      # 设置flutter_distributor环境
+      - name: Install flutter_distributor
+        run: dart pub global activate flutter_distributor
+
+      # 运行
+      - name: Run MacOS
+        run: |
+          flutter run -d macos
+
+      #完成
+      - run: echo "🍏 This job's status is ${{ job.status }}."

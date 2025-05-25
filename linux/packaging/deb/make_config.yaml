@@ -1,0 +1,20 @@
+display_name: LiveCh
+package_name: Livech
+maintainer:
+  name: Sle2p
+  email: sle2p@qq.com
+priority: optional
+section: x11
+installed_size: 24400
+essential: false
+icon: assets/images/icon.png
+
+keywords:
+  - Livech
+
+generic_name: Livech
+
+categories:
+  - Media
+
+startup_notify: true

@@ -1,0 +1,78 @@
+name: windows
+
+on:
+  workflow_dispatch:
+    inputs:
+      command:
+        description: 'Run custom command before building'
+        required: false
+        type: string
+      github_release:
+        description: 'Upload to Github release'
+        required: false
+        default: false
+        type: boolean
+jobs:
+  # 打包Windows
+  build-windows:
+    runs-on: windows-latest
+    permissions: write-all
+    steps:
+      # 签出代码
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - run: choco install yq
+      - name: Enable Git longpaths
+        run: git config --system core.longpaths true
+      # 设置Flutter环境
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version-file: pubspec.yaml
+          cache-key: "flutter-:os:-:channel:-:version:-:arch:-:hash:" # optional, change this to force refresh cache
+          cache-path: "${{ runner.tool_cache }}/flutter/:channel:-:version:-:arch:" # optional, change this to specify the cache path
+          pub-cache-key: "flutter-pub:os:-:channel:-:version:-:arch:-:hash:" # optional, change this to force refresh cache of dart pub get dependencies
+          pub-cache-path: "${{ runner.tool_cache }}/flutter/:channel:-:version:-:arch:" # optional, change this to specify the cache path
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'microsoft'
+          java-version: '17'
+      - name: Enable Flutter Desktop
+        run: flutter config --enable-windows-desktop
+      - name: Restore Packages
+        run: |
+          flutter pub get
+      # 读取版本信息
+      - name: Read version
+        id: version
+        uses: juliangruber/read-file-action@v1
+        with:
+          path: app_version.json
+      - name: Echo version
+        run: echo "${{ fromJson(steps.version.outputs.content).version }}"
+      - name: Echo version content
+        run: echo "${{ fromJson(steps.version.outputs.content).version_desc }}"
+      # build Windows
+      - name: Build Windows
+        run: |
+          flutter build windows
+      - run: Compress-Archive build/windows/x64/runner/Release/* livech-windows-${{ fromJson(steps.version.outputs.content).version }}.zip
+
+      #上传至Release
+      - name: Upload Release
+        uses: softprops/action-gh-release@v1
+        if: ${{ github.event.inputs.github_release == 'true' }}
+        with:
+          draft: true
+          prerelease: false
+          name: "${{ fromJson(steps.version.outputs.content).version }}"
+          tag_name: "${{ fromJson(steps.version.outputs.content).version }}"
+          body: "${{ fromJson(steps.version.outputs.content).version_desc }}"
+          files: |
+            livech-windows-*.zip
+
+      #完成
+      - run: echo "🍏 Windows job's status is ${{ job.status }}."
