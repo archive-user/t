@@ -37,7 +37,7 @@ class WebViewExample extends StatefulWidget {
 
 class _WebViewExampleState extends State<WebViewExample> {
   @override
-  void initState() async {
+  void initState() {
     super.initState();
 
     if (Platform.isLinux) {
