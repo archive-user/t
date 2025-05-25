@@ -13,7 +13,7 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    print('is OK!!');
+    debugPrint('is OK!!');
     return MaterialApp(
       title: 'WebView Example',
       theme: ThemeData(
@@ -37,40 +37,30 @@ class _WebViewExampleState extends State<WebViewExample> {
     super.initState();
 
     if (Platform.isLinux) {
-      final webview = await WebviewWindow.create();
+      final webview = await WebviewWindow.create(
+        configuration: CreateConfiguration(
+          titleBarTopPadding: Platform.isMacOS ? 20 : 0,
+        ),
+      );
       webview
-        ..registerJavaScriptMessageHandler("test", (name, body) {
-          debugPrint('on javaScipt message: $name $body');
-        })
-        ..registerJavaScriptMessageHandler("pageLoaded", (name, body) {
-          debugPrint('Page fully loaded, HTML content length: ${body.length}');
-          // 如果需要可以打印部分HTML内容
-          debugPrint('HTML snippet: ${body.substring(0, 100)}...');
-        })
+        ..setBrightness(Brightness.dark)
         ..setApplicationNameForUserAgent(" WebviewExample/1.0.0")
-        ..setPromptHandler((prompt, defaultText) {
-          if (prompt == "test") {
-            return "Hello World! $defaultText";
-          } else if (prompt == "init") {
-            return "initial prompt";
-          }
-          return "";
-        })
-        ..addScriptToExecuteOnDocumentCreated("""
-  const mixinContext = {
-    platform: 'Desktop',
-    conversation_id: 'conversationId',
-    immersive: false,
-    app_version: '1.0.0',
-    appearance: 'dark',
-  }
-  window.MixinContext = {
-    getContext: function() {
-      return JSON.stringify(mixinContext)
-    }
-  }
-""")
-        ..launch("https://flutter.dev/");
+        ..launch('https://flutter.dev/')
+        ..onClose.whenComplete(() {
+          debugPrint("on close");
+        });
+      await Future.delayed(const Duration(seconds: 2));
+      const javaScriptToEval = [
+        'eval({"name": "test", "user_agent": navigator.userAgent, "body": document.body.outerHTML})'
+      ];
+      for (final javaScript in javaScriptToEval) {
+        try {
+          final ret = await webview.evaluateJavaScript(javaScript);
+          debugPrint('evaluateJavaScript: $ret');
+        } catch (e) {
+          debugPrint('evaluateJavaScript error: $e \n $javaScript');
+        }
+      }
     } else {
       late final WebViewController controller;
       controller = WebViewController()
@@ -85,12 +75,12 @@ class _WebViewExampleState extends State<WebViewExample> {
                         'document.documentElement.outerHTML;') as String?;
 
                 if (pageContent != null) {
-                  print('网页内容: $pageContent');
+                  debugPrint('网页内容: $pageContent');
                 } else {
-                  print('未能获取网页内容');
+                  debugPrint('未能获取网页内容');
                 }
               } catch (e) {
-                print('获取网页内容时出错: $e');
+                debugPrint('获取网页内容时出错: $e');
               }
             },
           ),
