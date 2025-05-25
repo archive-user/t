@@ -36,6 +36,7 @@ class WebViewExample extends StatefulWidget {
 }
 
 class _WebViewExampleState extends State<WebViewExample> {
+  late final WebViewController? controller;
   @override
   void initState() {
     super.initState();
@@ -68,7 +69,6 @@ class _WebViewExampleState extends State<WebViewExample> {
         }
       });
     } else {
-      late final WebViewController controller;
       controller = WebViewController()
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
         ..setNavigationDelegate(
@@ -77,7 +77,7 @@ class _WebViewExampleState extends State<WebViewExample> {
               // 页面加载完成后获取网页内容
               try {
                 final String? pageContent =
-                    await controller.runJavaScriptReturningResult(
+                    await controller?.runJavaScriptReturningResult(
                         'document.documentElement.outerHTML;') as String?;
 
                 if (pageContent != null) {
@@ -99,7 +99,9 @@ class _WebViewExampleState extends State<WebViewExample> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Flutter WebView Example')),
-      body: const Text('test'),
+      body: Platform.isLinux
+          ? const Text('test')
+          : WebViewWidget(controller: controller!),
     );
   }
 }
