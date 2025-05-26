@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -130,7 +131,7 @@ Future<String> aim(String url) async {
           ''') as String?;
 
           if (result != null && result != '' && result.isNotEmpty) {
-            final decoded = json.decode(result);
+            final decoded = Platform.isAndroid ? json.decode(result) : result;
             final match =
                 RegExp('(?<=url=)http.*?(.mp4\$|.m3u8\$)').firstMatch(decoded);
             if (match != null && !completer.isCompleted) {
