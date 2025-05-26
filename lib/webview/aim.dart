@@ -129,7 +129,7 @@ Future<String> aim(String url) async {
             document.querySelector('#playleft > iframe')?.src || '';
           ''') as String?;
 
-          if (result != null && result.isNotEmpty) {
+          if (result != null && result != '' && result.isNotEmpty) {
             final decoded = json.decode(result);
             final match =
                 RegExp('(?<=url=)http.*?(.mp4\$|.m3u8\$)').firstMatch(decoded);
