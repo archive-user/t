@@ -126,7 +126,7 @@ Future<String> aim(String url) async {
       onPageFinished: (String url) async {
         try {
           final result = await controller.runJavaScriptReturningResult('''
-            document.querySelector('#playleft > iframe')?.src;
+            document.querySelector('#playleft > iframe')?.src || '';
           ''') as String?;
 
           if (result != null && result.isNotEmpty) {
