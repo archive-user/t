@@ -40,8 +40,10 @@ class WebViewExample extends StatefulWidget {
 
 class _WebViewExampleState extends State<WebViewExample> {
   late final WebViewController? controller;
-  String text = 'test';
-  String text2 = 'test';
+  String text = 'girigiri';
+  String text2 = 'xifan';
+  String text3 = 'dmmiku';
+  String text4 = 'jzacg';
   @override
   void initState() {
     super.initState();
@@ -98,16 +100,36 @@ class _WebViewExampleState extends State<WebViewExample> {
       void a() async {
         aim('https://anime.girigirilove.com/playGV26394-1-1/').then((t) {
           setState(() {
-            text = t;
+            if (t.isNotEmpty) {
+              text = t;
+              debugPrint('请求结果：：：：$t');
+            }
           });
-          debugPrint('请求结果：：：：$t');
         });
-
         aim('https://dm.xifanacg.com/watch/3158/1/1.html').then((t) {
           setState(() {
-            text2 = t;
+            if (t.isNotEmpty) {
+              text2 = t;
+              debugPrint('请求结果：：：：$t');
+            }
           });
-          debugPrint('请求结果：：：：$t');
+        });
+        aim('https://dmmiku.com/index.php/vod/play/id/3125/sid/1/nid/1.html')
+            .then((t) {
+          setState(() {
+            if (t.isNotEmpty) {
+              text3 = t;
+              debugPrint('请求结果：：：：$t');
+            }
+          });
+        });
+        aim('https://www.jzacg.com/bangumi/1421-2-1/').then((t) {
+          setState(() {
+            if (t.isNotEmpty) {
+              text4 = t;
+              debugPrint('请求结果：：：：$t');
+            }
+          });
         });
       }
 
@@ -126,6 +148,12 @@ class _WebViewExampleState extends State<WebViewExample> {
           ),
           SliverToBoxAdapter(
             child: Text(text2),
+          ),
+          SliverToBoxAdapter(
+            child: Text(text3),
+          ),
+          SliverToBoxAdapter(
+            child: Text(text4),
           )
         ],
       ),
