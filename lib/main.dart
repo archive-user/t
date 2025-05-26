@@ -1,13 +1,15 @@
+// import 'dart:convert';
 import 'dart:io';
+// import 'package:html/parser.dart' show parse;
+// import 'package:html/dom.dart' show Document;
 
 import 'package:desktop_webview_window/desktop_webview_window.dart';
 import 'package:flutter/material.dart';
+import 'package:livech/webview/aim.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_windows/webview_windows.dart';
 
 void main() {
-  if (runWebViewTitleBarWidget([])) {
-    return;
-  }
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
 }
@@ -19,6 +21,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     debugPrint('is OK!!');
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'WebView Example',
       theme: ThemeData(
         primarySwatch: Colors.blue,
@@ -37,11 +40,16 @@ class WebViewExample extends StatefulWidget {
 
 class _WebViewExampleState extends State<WebViewExample> {
   late final WebViewController? controller;
+  String text = 'test';
+  String text2 = 'test';
   @override
   void initState() {
     super.initState();
 
     if (Platform.isLinux) {
+      if (runWebViewTitleBarWidget([])) {
+        return;
+      }
       WebviewWindow.isWebviewAvailable().then((value) async {
         final webview = await WebviewWindow.create(
           configuration: CreateConfiguration(
@@ -68,30 +76,42 @@ class _WebViewExampleState extends State<WebViewExample> {
           }
         }
       });
+    } else if (Platform.isWindows) {
+      final controller = WebviewController();
+      controller.initialize().then((value) async {
+        await controller.setBackgroundColor(Colors.transparent);
+        await controller.setPopupWindowPolicy(WebviewPopupWindowPolicy.deny);
+        controller.webMessage.listen((message) {
+          debugPrint('收到消息: $message');
+          setState(() {
+            text = message;
+          });
+        });
+        await controller.loadUrl('https://flutter.dev/');
+        await Future.delayed(const Duration(seconds: 2));
+        await controller.executeScript('''
+          window.chrome.webview.postMessage('videoMessage:' + document.body.outerHTML);
+          window.location.href = 'about:blank';
+        ''');
+      });
     } else {
-      controller = WebViewController()
-        ..setJavaScriptMode(JavaScriptMode.unrestricted)
-        ..setNavigationDelegate(
-          NavigationDelegate(
-            onPageFinished: (String url) async {
-              // 页面加载完成后获取网页内容
-              try {
-                final String? pageContent =
-                    await controller?.runJavaScriptReturningResult(
-                        'document.documentElement.outerHTML;') as String?;
+      void a() async {
+        aim('https://anime.girigirilove.com/playGV26394-1-1/').then((t) {
+          setState(() {
+            text = t;
+          });
+          debugPrint('请求结果：：：：$t');
+        });
 
-                if (pageContent != null) {
-                  debugPrint('网页内容: $pageContent');
-                } else {
-                  debugPrint('未能获取网页内容');
-                }
-              } catch (e) {
-                debugPrint('获取网页内容时出错: $e');
-              }
-            },
-          ),
-        )
-        ..loadRequest(Uri.parse('https://flutter.dev/'));
+        aim('https://dm.xifanacg.com/watch/3158/1/1.html').then((t) {
+          setState(() {
+            text2 = t;
+          });
+          debugPrint('请求结果：：：：$t');
+        });
+      }
+
+      a();
     }
   }
 
@@ -99,9 +119,16 @@ class _WebViewExampleState extends State<WebViewExample> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Flutter WebView Example')),
-      body: Platform.isLinux
-          ? const Text('test')
-          : WebViewWidget(controller: controller!),
+      body: CustomScrollView(
+        slivers: [
+          SliverToBoxAdapter(
+            child: Text(text),
+          ),
+          SliverToBoxAdapter(
+            child: Text(text2),
+          )
+        ],
+      ),
     );
   }
 }

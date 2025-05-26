@@ -10,7 +10,7 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    print('is OK!!');
+    debugPrint('is OK!!');
     return MaterialApp(
       title: 'WebView Example',
       theme: ThemeData(
@@ -47,12 +47,12 @@ class _WebViewExampleState extends State<WebViewExample> {
                       'document.documentElement.outerHTML;') as String?;
 
               if (pageContent != null) {
-                print('网页内容: $pageContent');
+                debugPrint('网页内容: $pageContent');
               } else {
-                print('未能获取网页内容');
+                debugPrint('未能获取网页内容');
               }
             } catch (e) {
-              print('获取网页内容时出错: $e');
+              debugPrint('获取网页内容时出错: $e');
             }
           },
         ),
