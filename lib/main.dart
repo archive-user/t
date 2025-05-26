@@ -114,6 +114,14 @@ class _WebViewExampleState extends State<WebViewExample> {
             }
           });
         });
+        aim('https://dm.xifanacg.com/watch/3158/1/2.html').then((t) {
+          setState(() {
+            if (t.isNotEmpty) {
+              text2 = t;
+              debugPrint('请求结果：：：：$t');
+            }
+          });
+        });
         aim('https://dmmiku.com/index.php/vod/play/id/3125/sid/1/nid/1.html')
             .then((t) {
           setState(() {
