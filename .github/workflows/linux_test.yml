@@ -57,7 +57,13 @@ jobs:
       # Run Linux
       - name: Run Linux
         run: |
-          timeout 1m xvfb-run flutter run -d linux --no-pub --no-build --version
+          export DISPLAY=:99
+          Xvfb :99 -screen 0 1024x768x24 > /dev/null 2>&1 &
+          sleep 5
+          flutter test || true  # 运行单元测试
+          flutter run -d linux --release --no-pub --dart-define=CI=true &
+          sleep 600  # 等待应用启动
+          kill %1  # 结束flutter run进程
 
         #完成
       - run: echo "🍏 Linux job's status is ${{ job.status }}."

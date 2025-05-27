@@ -36,7 +36,7 @@ class WebviewLinux {
         window.addEventListener('DOMContentLoaded', async function () {
           if (!/404\$|favicon.ico\$/.test(window.location.href)) return;
           for (let i = 1; i < 100; i++) { clearTimeout(i); }
-          window.chrome.webview.postMessage(JSON.stringify({
+          window.webkit.messageHandlers.msgToNative.postMessage(JSON.stringify({
             type: 'resource',
             url: 'DOMContentLoaded'
           }));
@@ -60,14 +60,14 @@ class WebviewLinux {
             const doc = parser.parseFromString(html, 'text/html');
             const vod = doc?.querySelector('video')?.src;
             if (vod && /^bolb/.test(vod)) {
-              window.chrome.webview.postMessage(JSON.stringify({
+              window.webkit.messageHandlers.msgToNative.postMessage(JSON.stringify({
                 type: 'video',
                 url: vod,
               }));
             }
             const vodIframe = doc?.querySelector('iframe')?.src;
             if (vodIframe && /url=|player|.php|addons/.test(vodIframe)) {
-              window.chrome.webview.postMessage(JSON.stringify({
+              window.webkit.messageHandlers.msgToNative.postMessage(JSON.stringify({
                 type: 'iframe',
                 url: vodIframe,
               }));
@@ -83,7 +83,7 @@ class WebviewLinux {
             document.write(doc.documentElement.outerHTML);
             document.close();
           } catch (error) {
-            window.chrome.webview.postMessage(JSON.stringify({
+            window.webkit.messageHandlers.msgToNative.postMessage(JSON.stringify({
               type: 'pageProcessed',
               url: '$url',
               error: error.message
@@ -101,7 +101,7 @@ class WebviewLinux {
             const xhr = new originalXHR();
             xhr.addEventListener('load', function () {
               if (/.ts\$|.google|playOnline/gim.test(this.responseURL || this._url)) return;
-              window.chrome.webview.postMessage(JSON.stringify({
+              window.webkit.messageHandlers.msgToNative.postMessage(JSON.stringify({
                 type: 'xhr',
                 url: this.responseURL || this._url
               }));
@@ -113,7 +113,7 @@ class WebviewLinux {
             var originalFetch = window.fetch;
             window.fetch = function () {
               if (/.ts\$|.google|playOnline/gim.test(arguments[0])) return;
-              window.chrome.webview.postMessage(JSON.stringify({
+              window.webkit.messageHandlers.msgToNative.postMessage(JSON.stringify({
                 type: 'fetch',
                 url: arguments[0]
               }));
@@ -124,13 +124,13 @@ class WebviewLinux {
           const observer = new PerformanceObserver(list => {
             list.getEntries().forEach(entry => {
               if (entry.initiatorType == 'video' && entry.responseStatus == '200') {
-                window.chrome.webview.postMessage(JSON.stringify({
+                window.webkit.messageHandlers.msgToNative.postMessage(JSON.stringify({
                   type: 'poster',
                   url: entry.name
                 }));
                 return;
               }
-              window.chrome.webview.postMessage(JSON.stringify({
+              window.webkit.messageHandlers.msgToNative.postMessage(JSON.stringify({
                 type: entry.initiatorType,
                 url: entry.name
               }));
@@ -140,7 +140,7 @@ class WebviewLinux {
           // 监听 iframe 加载
           document.addEventListener('DOMNodeInserted', e => {
             if (e.target.tagName === 'IFRAME' && e.target.src) {
-              window.chrome.webview.postMessage(JSON.stringify({
+              window.webkit.messageHandlers.msgToNative.postMessage(JSON.stringify({
                 type: 'iframe',
                 url: e.target.src
               }));
