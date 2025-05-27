@@ -1,13 +1,10 @@
 // import 'dart:convert';
-import 'dart:io';
 // import 'package:html/parser.dart' show parse;
 // import 'package:html/dom.dart' show Document;
 
-import 'package:desktop_webview_window/desktop_webview_window.dart';
 import 'package:flutter/material.dart';
-import 'package:livech/webview/aim.dart';
-import 'package:webview_flutter/webview_flutter.dart';
-import 'package:webview_windows/webview_windows.dart';
+// import 'package:livech/json/get_value_by_path.dart';
+import 'package:livech/webview/index.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,6 +17,41 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     debugPrint('is OK!!');
+    // var jsonData = {
+    //   "data": {
+    //     "list": [
+    //       {
+    //         "item": {
+    //           "title": "First Item Title",
+    //           "description": "Description 1",
+    //           "list": [
+    //             1,
+    //             52,
+    //             {
+    //               "title": "First Item list Title",
+    //             }
+    //           ]
+    //         }
+    //       },
+    //       {
+    //         "item": {
+    //           "title": "Item Title",
+    //           "description": "Description 1",
+    //           "list": [
+    //             2,
+    //             12,
+    //             {
+    //               "title": "Second Item list Title",
+    //             }
+    //           ]
+    //         }
+    //       },
+    //       {"title": "Second Item Title", "description": "Description 2"}
+    //     ],
+    //     "count": 2
+    //   }
+    // };
+    // print(Json.getValueFromJson(jsonData, 'data["list"].*.item.list[*].title'));
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'WebView Example',
@@ -39,7 +71,6 @@ class WebViewExample extends StatefulWidget {
 }
 
 class _WebViewExampleState extends State<WebViewExample> {
-  late final WebViewController? controller;
   String text = 'girigiri';
   String text2 = 'xifan';
   String text3 = 'dmmiku';
@@ -48,101 +79,48 @@ class _WebViewExampleState extends State<WebViewExample> {
   void initState() {
     super.initState();
 
-    if (Platform.isLinux) {
-      if (runWebViewTitleBarWidget([])) {
-        return;
-      }
-      WebviewWindow.isWebviewAvailable().then((value) async {
-        final webview = await WebviewWindow.create(
-          configuration: CreateConfiguration(
-            titleBarTopPadding: Platform.isMacOS ? 20 : 0,
-          ),
-        );
-        webview
-          ..setBrightness(Brightness.dark)
-          ..setApplicationNameForUserAgent(" WebviewExample/1.0.0")
-          ..launch('https://flutter.dev/')
-          ..onClose.whenComplete(() {
-            debugPrint("on close");
-          });
-        await Future.delayed(const Duration(seconds: 2));
-        const javaScriptToEval = [
-          'eval({"name": "test", "user_agent": navigator.userAgent, "body": document.body.outerHTML})'
-        ];
-        for (final javaScript in javaScriptToEval) {
-          try {
-            final ret = await webview.evaluateJavaScript(javaScript);
-            debugPrint('evaluateJavaScript: $ret');
-          } catch (e) {
-            debugPrint('evaluateJavaScript error: $e \n $javaScript');
-          }
+    Webview.getVod('https://anime.girigirilove.com/playGV26394-1-1/').then((t) {
+      setState(() {
+        if (t.isNotEmpty) {
+          text = t;
+          debugPrint('请求结果：：：：$t');
         }
       });
-    } else if (Platform.isWindows) {
-      final controller = WebviewController();
-      controller.initialize().then((value) async {
-        await controller.setBackgroundColor(Colors.transparent);
-        await controller.setPopupWindowPolicy(WebviewPopupWindowPolicy.deny);
-        controller.webMessage.listen((message) {
-          debugPrint('收到消息: $message');
-          setState(() {
-            text = message;
-          });
-        });
-        await controller.loadUrl('https://flutter.dev/');
-        await Future.delayed(const Duration(seconds: 2));
-        await controller.executeScript('''
-          window.chrome.webview.postMessage('videoMessage:' + document.body.outerHTML);
-          window.location.href = 'about:blank';
-        ''');
+    });
+    Webview.getVod('https://dm.xifanacg.com/watch/3158/1/1.html').then((t) {
+      setState(() {
+        if (t.isNotEmpty) {
+          text2 = t;
+          debugPrint('请求结果：：：：$t');
+        }
       });
-    } else {
-      void a() async {
-        aim('https://anime.girigirilove.com/playGV26394-1-1/').then((t) {
-          setState(() {
-            if (t.isNotEmpty) {
-              text = t;
-              debugPrint('请求结果：：：：$t');
-            }
-          });
-        });
-        aim('https://dm.xifanacg.com/watch/3158/1/1.html').then((t) {
-          setState(() {
-            if (t.isNotEmpty) {
-              text2 = t;
-              debugPrint('请求结果：：：：$t');
-            }
-          });
-        });
-        aim('https://dm.xifanacg.com/watch/3158/1/2.html').then((t) {
-          setState(() {
-            if (t.isNotEmpty) {
-              text2 = t;
-              debugPrint('请求结果：：：：$t');
-            }
-          });
-        });
-        aim('https://dmmiku.com/index.php/vod/play/id/3125/sid/1/nid/1.html')
-            .then((t) {
-          setState(() {
-            if (t.isNotEmpty) {
-              text3 = t;
-              debugPrint('请求结果：：：：$t');
-            }
-          });
-        });
-        aim('https://www.jzacg.com/bangumi/1421-2-1/').then((t) {
-          setState(() {
-            if (t.isNotEmpty) {
-              text4 = t;
-              debugPrint('请求结果：：：：$t');
-            }
-          });
-        });
-      }
-
-      a();
-    }
+    });
+    Webview.getVod('https://dm.xifanacg.com/watch/3158/1/2.html').then((t) {
+      setState(() {
+        if (t.isNotEmpty) {
+          text2 = t;
+          debugPrint('请求结果：：：：$t');
+        }
+      });
+    });
+    Webview.getVod(
+            'https://dmmiku.com/index.php/vod/play/id/3125/sid/1/nid/1.html')
+        .then((t) {
+      setState(() {
+        if (t.isNotEmpty) {
+          text3 = t;
+          debugPrint('请求结果：：：：$t');
+        }
+      });
+    });
+    Webview.getVod('https://www.jzacg.com/bangumi/1421-2-1/').then((t) {
+      setState(() {
+        if (t.isNotEmpty) {
+          text4 = t;
+          debugPrint('请求结果：：：：$t');
+        }
+      });
+    });
   }
 
   @override
