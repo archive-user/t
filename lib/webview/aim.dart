@@ -15,7 +15,7 @@ class WebviewAIM {
       final controller = WebViewController();
 
       // 设置超时
-      Future.delayed(const Duration(seconds: 30), () {
+      Future.delayed(const Duration(seconds: 100), () {
         if (!completer.isCompleted) {
           debugPrint('{type: timeout, message: $url}');
           if (onResourceLoaded != null) {
