@@ -1,45 +1,191 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 class WebviewAIM {
-  static Future<String> getVod(String url) async {
+  static Future<String> getVod(
+    String url, {
+    void Function(Map)? onResourceLoaded, // 回调：每当资源加载时触发
+    bool fetch = true,
+    String? regexp,
+  }) async {
     try {
       final completer = Completer<String>();
       final controller = WebViewController();
 
-      // 设置超时（100秒）
-      Future.delayed(const Duration(seconds: 100), () {
+      // 设置超时
+      Future.delayed(const Duration(seconds: 30), () {
         if (!completer.isCompleted) {
+          debugPrint('{type: timeout, message: $url}');
+          if (onResourceLoaded != null) {
+            onResourceLoaded({'type': 'timeout', 'message': url});
+          }
           completer.complete('');
         }
       });
 
-      // 清理缓存和设置
-      // await controller.clearCache();
+      final proxyScript = '''
+        (async function () {
+          Interceptor.postMessage(JSON.stringify({
+            type: 'regexp',
+            message: String(document?.documentElement?.outerHTML)?.match(/$regexp/gim)?.at(0) || ''
+          }));
+          if (/404\$|favicon.gif\$/.test(window.location.href)) {
+            try {
+              const response = await fetch('$url', {
+                method: 'GET',
+                headers: {
+                  'Accept': 'text/html',
+                  'Content-Type': 'text/html'
+                },
+                credentials: 'include'
+              });
+              const html = await response.text();
+              const parser = new DOMParser();
+              const doc = parser.parseFromString(html, 'text/html');
+              document.open();
+              document.close();
+              const els = doc?.querySelectorAll('img, style, link, form, .ds-comment, iframe[src*="prestrain"], script[src*="swiper"], script[src*="assembly"], script[src*="zh.js"], script[src*="ecscript"]');
+              els.forEach(el => el.remove());
+              const ads = doc?.querySelectorAll('.ad-class, [id*="ad"], script[src*="google"]');
+              ads.forEach(ad => ad.remove());
+              document.write(doc.documentElement.outerHTML);
+            } catch (e) {
+              return Interceptor.postMessage(JSON.stringify({
+                type: 'fetchError',
+                message: 'fetch请求失败'
+              }));
+            }
+          };
+          Interceptor.postMessage(JSON.stringify({
+            type: 'regexp',
+            message: String(document?.documentElement?.outerHTML)?.match(/$regexp/gim)?.at(0) || ''
+          }));
+          const vod = document?.querySelector('video')?.src;
+          if (vod && /^bolb/.test(vod)) {
+            Interceptor.postMessage(JSON.stringify({
+              type: 'video',
+              message: vod,
+            }));
+          }
+          const vodIframe = document?.querySelector('iframe')?.src;
+          if (vodIframe && /url=|player|.php|addons/.test(vodIframe)) {
+            Interceptor.postMessage(JSON.stringify({
+              type: 'iframe',
+              message: vodIframe,
+            }));
+          };
+        })();
+      ''';
+
+      const interceptScript = '''
+        (function () {
+          // 拦截 XMLHttpRequest
+          const originalXHR = window.XMLHttpRequest;
+          window.XMLHttpRequest = function () {
+            const xhr = new originalXHR();
+            xhr.addEventListener('load', function () {
+              Interceptor.postMessage(JSON.stringify({
+                type: 'xhr',
+                message: this.responseURL || this._url
+              }));
+            });
+            return xhr;
+          };
+          // 拦截 fetch API
+          (function () {
+            var originalFetch = window.fetch;
+            window.fetch = function () {
+              Interceptor.postMessage(JSON.stringify({
+                type: 'fetch',
+                message: arguments[0]
+              }));
+              return originalFetch.apply(this, arguments);
+            };
+          })();
+          // 使用 PerformanceObserver 监听静态资源
+          const observer = new PerformanceObserver(list => {
+            list.getEntries().forEach(entry => {
+              if (entry.initiatorType == 'video' && entry.responseStatus == '200') {
+                Interceptor.postMessage(JSON.stringify({
+                  type: 'poster',
+                  message: entry.name
+                }));
+                return;
+              }
+              Interceptor.postMessage(JSON.stringify({
+                type: entry.initiatorType,
+                message: entry.name
+              }));
+            });
+          });
+          observer.observe({ entryTypes: ['resource'] });
+          const mutationObserver = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+              mutation.addedNodes.forEach((node) => {
+                if (node.tagName == 'IFRAME' && node.src) {
+                  Interceptor.postMessage(JSON.stringify({
+                    type: node.tagName.toLocaleLowerCase(),
+                    message: node.src
+                  }));
+                }
+              });
+            });
+          });
+          mutationObserver.observe(document, {
+            childList: true,    // 观察子节点的添加/移除
+            subtree: true,      // 观察所有后代节点
+            attributes: false,  // 不观察属性变化
+            characterData: false // 不观察文本内容变化
+          });
+        })();
+      ''';
+
       controller.setJavaScriptMode(JavaScriptMode.unrestricted);
 
       // JavaScript通道
       controller.addJavaScriptChannel(
         'Interceptor',
-        onMessageReceived: (JavaScriptMessage message) {
-          debugPrint('Resource: ${message.message}');
-        },
-      );
-      controller.addJavaScriptChannel(
-        'Video',
-        onMessageReceived: (JavaScriptMessage message) {
-          controller.runJavaScript('''
-          window.location.href = 'about:blank';
-        ''').then((onValue) {
-            if (!completer.isCompleted) {
-              completer.complete(message.message);
-              controller.removeJavaScriptChannel('Interceptor');
-              controller.removeJavaScriptChannel('Video');
+        onMessageReceived: (JavaScriptMessage message) async {
+          try {
+            final data = json.decode(message.message);
+            debugPrint(data.toString());
+            if (onResourceLoaded != null) {
+              onResourceLoaded(data);
             }
-          });
+            if (data['type'] == 'fetchError') {
+              await controller.loadRequest(Uri.parse(url));
+            }
+            if (data['type'] == 'video' &&
+                    RegExp('^http').hasMatch(data['message']) ||
+                !RegExp('url=').hasMatch(data['message']) &&
+                    RegExp(r'.m3u8$|.mp4$|m3u8\?|mp4\?')
+                        .hasMatch(data['message'])) {
+              if (!completer.isCompleted) {
+                completer.complete(data['message']);
+              }
+            }
+            final regexpMatch = regexp != null
+                ? RegExp(regexp).allMatches(data['message'])
+                : [] as Iterable;
+            if (regexpMatch.isNotEmpty) {
+              debugPrint(
+                  '{type: regexp, message: ${regexpMatch.first.group(0)}}');
+              if (!completer.isCompleted) {
+                completer.complete(regexpMatch.first.group(0));
+              }
+            }
+            if (data['type'] == 'iframe' &&
+                RegExp(r'url=|player|.php|addons').hasMatch(data['message']) &&
+                !RegExp(r'googleads|doubleclick|pagead')
+                    .hasMatch(data['message'])) {
+              debugPrint('{type: load, message: ${data['message']}}');
+              controller.loadRequest(Uri.parse(data['message']));
+            }
+          } catch (e) {
+            debugPrint('解析资源消息失败: $e');
+          }
         },
       );
 
@@ -48,119 +194,34 @@ class WebviewAIM {
 
       controller.setNavigationDelegate(
         NavigationDelegate(
-          onUrlChange: (change) async {
-            await controller.runJavaScript('''
-              // 移除元素
-              function removeEl() {
-                // 按class名移除
-                document.querySelectorAll('img, link, style').forEach(el => el.remove());
-
-                // 按iframe源移除
-                document.querySelectorAll('iframe').forEach(iframe => {
-                  if (iframe.src.includes('adservice') ||
-                    iframe.src.includes('doubleclick')) {
-                    iframe.remove();
-                  }
-                });
-              }
-
-              // 初始清理
-              removeEl();
-
-              // 监控DOM变化持续清理
-              const observer = new MutationObserver(removeEl);
-              observer.observe(document.documentElement, {
-                childList: true,
-                subtree: true
-              });
-
-              // 1. 拦截所有 XMLHttpRequest
-              (function () {
-                var originalXHROpen = XMLHttpRequest.prototype.open;
-                XMLHttpRequest.prototype.open = function (method, url) {
-                  if (/.ts\$|.google/gim.test(url)) return;
-                  Interceptor.postMessage('XHR请求: ' + method + ' ' + url);
-                  if (/^http/gim.test(url) && /.m3u8\$/gim.test(url)) {
-                      Video.postMessage(url);
-                    }
-                  originalXHROpen.apply(this, arguments);
-                };
-
-                var originalXHRSend = XMLHttpRequest.prototype.send;
-                XMLHttpRequest.prototype.send = function (body) {
-                  if (body) {
-                    Interceptor.postMessage('XHR请求体: ' + body);
-                  }
-                  originalXHRSend.apply(this, arguments);
-                };
-              })();
-
-              // 2. 拦截所有 Fetch API 请求
-              (function () {
-                var originalFetch = window.fetch;
-                window.fetch = function () {
-                  if (/.ts\$|.google/gim.test(url)) return;
-                  Interceptor.postMessage('Fetch请求: ' + arguments[0]);
-                  return originalFetch.apply(this, arguments);
-                };
-              })();
-
-              // 3. 监听所有资源加载
-              (function () {
-                var observer = new PerformanceObserver(function (list) {
-                  list.getEntries().forEach(function (entry) {
-                    if (/video/gim.test(entry.initiatorType) && /^http/gim.test(entry.name) || /xmlhttprequest/gim.test(entry.initiatorType) && /.m3u8\$/gim.test(entry.name)) {
-                      // Interceptor.postMessage('资源加载: ' + entry.name + ' (' + entry.initiatorType + ')');
-                      Video.postMessage(entry.name);
-                    }
-                  });
-                });
-                observer.observe({ entryTypes: ['resource'] });
-              })();
-
-              // 4. 拦截动态创建的脚本和iframe
-              (function () {
-                var originalCreateElement = document.createElement;
-                document.createElement = function (tagName) {
-                  if (tagName.toLowerCase() === 'script') {
-                    Interceptor.postMessage('动态创建脚本元素');
-                  } else if (tagName.toLowerCase() === 'iframe') {
-                    Interceptor.postMessage('动态创建iframe元素');
-                  }
-                  return originalCreateElement.apply(this, arguments);
-                };
-              })();
-          ''');
-          },
-          onPageFinished: (String url) async {
-            try {
-              final result = await controller.runJavaScriptReturningResult('''
-            document.querySelector('#playleft > iframe')?.src || '';
-          ''') as String?;
-
-              if (result != null && result != '' && result.isNotEmpty) {
-                final decoded =
-                    Platform.isAndroid ? json.decode(result) : result;
-                final match = RegExp('(?<=url=)http.*?(.mp4\$|.m3u8\$)')
-                    .firstMatch(decoded);
-                if (match != null && !completer.isCompleted) {
-                  completer.complete(match.group(0));
-                } else {
-                  await controller.loadRequest(Uri.parse(decoded));
-                }
-              }
-            } catch (e) {
-              if (!completer.isCompleted) {
-                completer.completeError(e);
-              }
-            }
+          onProgress: (request) async {},
+          onPageStarted: (String url) async {
+            controller.runJavaScript(proxyScript);
+            await controller.runJavaScript(interceptScript);
           },
         ),
       );
 
-      await controller.loadRequest(Uri.parse(url));
+      await controller.runJavaScript('''
+        if (window.performance && performance.memory) {
+          performance.memory.jsHeapSizeLimit = 0;
+        }
+      ''');
 
-      return await Future.value(completer.future);
+      // 加载目标 URL
+      final loadUrl = fetch
+          ? '${RegExp(r'http(s?):\/\/.*?(?=\/|$)').allMatches(url).first.group(0).toString()}/favicon.gif'
+          : url;
+      debugPrint('{type: load, message: $loadUrl}');
+      await controller.loadRequest(Uri.parse(loadUrl));
+
+      // 等待页面加载完成
+      final result = await completer.future;
+      await controller.runJavaScript('localStorage.clear()');
+      await controller.runJavaScript('sessionStorage.clear()');
+      await controller.clearCache();
+      await controller.loadRequest(Uri.parse('about:blank'));
+      return result;
     } catch (e) {
       debugPrint(e.toString());
       return await Future.value('');

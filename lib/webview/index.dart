@@ -6,14 +6,22 @@ import 'package:livech/webview/linux.dart';
 import 'package:livech/webview/windows.dart';
 
 class Webview {
-  static Future<String> getVod(String url) async {
+  static Future<String> getVod(
+    String url, {
+    void Function(Map)? onResourceLoaded,
+    bool fetch = true,
+    String? regexp,
+  }) async {
     try {
       if (Platform.isLinux) {
-        return WebviewLinux.getVod(url);
+        return WebviewLinux.getVod(url,
+            onResourceLoaded: onResourceLoaded, fetch: fetch, regexp: regexp);
       } else if (Platform.isWindows) {
-        return WebviewWindows.getVod(url);
+        return WebviewWindows.getVod(url,
+            onResourceLoaded: onResourceLoaded, fetch: fetch, regexp: regexp);
       } else {
-        return WebviewAIM.getVod(url);
+        return WebviewAIM.getVod(url,
+            onResourceLoaded: onResourceLoaded, fetch: fetch, regexp: regexp);
       }
     } catch (e) {
       debugPrint(e.toString());

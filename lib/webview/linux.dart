@@ -7,8 +7,9 @@ import 'package:flutter/material.dart';
 class WebviewLinux {
   static Future<String> getVod(
     String url, {
-    void Function(String)? onResourceLoaded, // 回调：每当资源加载时触发
+    void Function(Map)? onResourceLoaded, // 回调：每当资源加载时触发
     bool fetch = true,
+    String? regexp,
   }) async {
     try {
       if (runWebViewTitleBarWidget([])) {
@@ -21,89 +22,81 @@ class WebviewLinux {
           titleBarTopPadding: 0,
         ),
       );
-      // 设置超时（100秒）
-      Future.delayed(const Duration(seconds: 60), () {
+      // 设置超时
+      Future.delayed(const Duration(seconds: 30), () {
         if (!completer.isCompleted) {
-          debugPrint('超时：$url');
-          controller.evaluateJavaScript('''
-            window.location.href = 'about:blank';
-          ''');
+          debugPrint('{type: timeout, message: $url}');
+          if (onResourceLoaded != null) {
+            onResourceLoaded({'type': 'timeout', 'message': url});
+          }
           completer.complete('');
         }
       });
 
       final proxyScript = '''
-        window.addEventListener('DOMContentLoaded', async function () {
-          if (!/404\$|favicon.ico\$/.test(window.location.href)) return;
-          for (let i = 1; i < 100; i++) { clearTimeout(i); }
+        (async function () {
           window.webkit.messageHandlers.msgToNative.postMessage(JSON.stringify({
-            type: 'resource',
-            url: 'DOMContentLoaded'
+            type: 'regexp',
+            message: String(document?.documentElement?.outerHTML)?.match(/$regexp/gim)?.at(0) || ''
           }));
-          try {
-            // 使用fetch获取页面内容
-            const response = await fetch('$url', {
-              method: 'GET',
-              headers: {
-                'Accept': 'text/html',
-                'Content-Type': 'text/html'
-              },
-              credentials: 'include'
-            });
-            if (!response.ok) {
-              throw new Error('Network response was not ok');
-            }
-            // 获取HTML文本
-            const html = await response.text();
-            // 创建临时DOM解析HTML
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
-            const vod = doc?.querySelector('video')?.src;
-            if (vod && /^bolb/.test(vod)) {
-              window.webkit.messageHandlers.msgToNative.postMessage(JSON.stringify({
-                type: 'video',
-                url: vod,
+          if (/404\$|favicon.gif\$/.test(window.location.href)) {
+            try {
+              const response = await fetch('$url', {
+                method: 'GET',
+                headers: {
+                  'Accept': 'text/html',
+                  'Content-Type': 'text/html'
+                },
+                credentials: 'include'
+              });
+              const html = await response.text();
+              const parser = new DOMParser();
+              const doc = parser.parseFromString(html, 'text/html');
+              document.open();
+              document.close();
+              const els = doc?.querySelectorAll('img, style, link, form, .ds-comment, iframe[src*="prestrain"], script[src*="swiper"], script[src*="assembly"], script[src*="zh.js"], script[src*="ecscript"]');
+              els.forEach(el => el.remove());
+              const ads = doc?.querySelectorAll('.ad-class, [id*="ad"], script[src*="google"]');
+              ads.forEach(ad => ad.remove());
+              document.write(doc.documentElement.outerHTML);
+            } catch (e) {
+              return window.webkit.messageHandlers.msgToNative.postMessage(JSON.stringify({
+                type: 'fetchError',
+                message: 'fetch请求失败'
               }));
             }
-            const vodIframe = doc?.querySelector('iframe')?.src;
-            if (vodIframe && /url=|player|.php|addons/.test(vodIframe)) {
-              window.webkit.messageHandlers.msgToNative.postMessage(JSON.stringify({
-                type: 'iframe',
-                url: vodIframe,
-              }));
-            }
-            // 移除标签
-            const els = doc?.querySelectorAll('img, style, link, form, .ds-comment, iframe[src*="prestrain"], script[src*="swiper"], script[src*="assembly"], script[src*="zh.js"], script[src*="ecscript"]');
-            els.forEach(el => el.remove());
-            // 也可以选择性地移除其他元素
-            const ads = doc?.querySelectorAll('.ad-class, [id*="ad"], script[src*="google"]');
-            ads.forEach(ad => ad.remove());
-            // 替换当前document的HTML
-            document.open();
-            document.write(doc.documentElement.outerHTML);
-            document.close();
-          } catch (error) {
+          };
+          window.webkit.messageHandlers.msgToNative.postMessage(JSON.stringify({
+            type: 'regexp',
+            message: String(document?.documentElement?.outerHTML)?.match(/$regexp/gim)?.at(0) || ''
+          }));
+          const vod = document?.querySelector('video')?.src;
+          if (vod && /^bolb/.test(vod)) {
             window.webkit.messageHandlers.msgToNative.postMessage(JSON.stringify({
-              type: 'pageProcessed',
-              url: '$url',
-              error: error.message
+              type: 'video',
+              message: vod,
             }));
           }
-        });
+          const vodIframe = document?.querySelector('iframe')?.src;
+          if (vodIframe && /url=|player|.php|addons/.test(vodIframe)) {
+            window.webkit.messageHandlers.msgToNative.postMessage(JSON.stringify({
+              type: 'iframe',
+              message: vodIframe,
+            }));
+          };
+        })();
       ''';
 
       const interceptScript = '''
-        // 拦截所有动态加载的资源
         (function () {
           // 拦截 XMLHttpRequest
           const originalXHR = window.XMLHttpRequest;
           window.XMLHttpRequest = function () {
             const xhr = new originalXHR();
             xhr.addEventListener('load', function () {
-              if (/.ts\$|.google|playOnline/gim.test(this.responseURL || this._url)) return;
               window.webkit.messageHandlers.msgToNative.postMessage(JSON.stringify({
                 type: 'xhr',
-                url: this.responseURL || this._url
+                message: this.responseURL || this._url
               }));
             });
             return xhr;
@@ -112,10 +105,9 @@ class WebviewLinux {
           (function () {
             var originalFetch = window.fetch;
             window.fetch = function () {
-              if (/.ts\$|.google|playOnline/gim.test(arguments[0])) return;
               window.webkit.messageHandlers.msgToNative.postMessage(JSON.stringify({
                 type: 'fetch',
-                url: arguments[0]
+                message: arguments[0]
               }));
               return originalFetch.apply(this, arguments);
             };
@@ -126,25 +118,34 @@ class WebviewLinux {
               if (entry.initiatorType == 'video' && entry.responseStatus == '200') {
                 window.webkit.messageHandlers.msgToNative.postMessage(JSON.stringify({
                   type: 'poster',
-                  url: entry.name
+                  message: entry.name
                 }));
                 return;
               }
               window.webkit.messageHandlers.msgToNative.postMessage(JSON.stringify({
                 type: entry.initiatorType,
-                url: entry.name
+                message: entry.name
               }));
             });
           });
           observer.observe({ entryTypes: ['resource'] });
-          // 监听 iframe 加载
-          document.addEventListener('DOMNodeInserted', e => {
-            if (e.target.tagName === 'IFRAME' && e.target.src) {
-              window.webkit.messageHandlers.msgToNative.postMessage(JSON.stringify({
-                type: 'iframe',
-                url: e.target.src
-              }));
-            }
+          const mutationObserver = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+              mutation.addedNodes.forEach((node) => {
+                if (node.tagName == 'IFRAME' && node.src) {
+                  window.webkit.messageHandlers.msgToNative.postMessage(JSON.stringify({
+                    type: node.tagName.toLocaleLowerCase(),
+                    message: node.src
+                  }));
+                }
+              });
+            });
+          });
+          mutationObserver.observe(document, {
+            childList: true,    // 观察子节点的添加/移除
+            subtree: true,      // 观察所有后代节点
+            attributes: false,  // 不观察属性变化
+            characterData: false // 不观察文本内容变化
           });
         })();
       ''';
@@ -158,63 +159,63 @@ class WebviewLinux {
         try {
           final data = json.decode(message);
           debugPrint(data.toString());
-          if (data['type'] == 'resource' && onResourceLoaded != null) {
-            onResourceLoaded(data['url']); // 回调返回资源 URL
+          if (onResourceLoaded != null) {
+            onResourceLoaded(data);
           }
-          if (data['type'] == 'video' ||
-              !RegExp('url=').hasMatch(data['url']) &&
-                  RegExp(r'.m3u8$|.mp4$|m3u8\?|mp4\?').hasMatch(data['url'])) {
+          if (data['type'] == 'fetchError') {
+            controller.launch(url);
+          }
+          if (data['type'] == 'video' &&
+                  RegExp('^http').hasMatch(data['message']) ||
+              !RegExp('url=').hasMatch(data['message']) &&
+                  RegExp(r'.m3u8$|.mp4$|m3u8\?|mp4\?')
+                      .hasMatch(data['message'])) {
             if (!completer.isCompleted) {
-              completer.complete(data['url']);
+              completer.complete(data['message']);
+            }
+          }
+          final regexpMatch = regexp != null
+              ? RegExp(regexp).allMatches(data['message'])
+              : [] as Iterable;
+          if (regexpMatch.isNotEmpty) {
+            debugPrint(
+                '{type: regexp, message: ${regexpMatch.first.group(0)}}');
+            if (!completer.isCompleted) {
+              completer.complete(regexpMatch.first.group(0));
             }
           }
           if (data['type'] == 'iframe' &&
-              RegExp(r'url=|player|.php|addons').hasMatch(data['url']) &&
-              !RegExp(r'googleads|doubleclick|pagead').hasMatch(data['url'])) {
-            debugPrint('{type: load, url: ${data['url']}}');
-            controller.launch(data['url']);
+              RegExp(r'url=|player|.php|addons').hasMatch(data['message']) &&
+              !RegExp(r'googleads|doubleclick|pagead')
+                  .hasMatch(data['message'])) {
+            debugPrint('{type: load, message: ${data['message']}}');
+            controller.launch(data['message']);
           }
         } catch (e) {
           debugPrint('解析资源消息失败: $e');
         }
       });
 
+      await controller.evaluateJavaScript('''
+        if (window.performance && performance.memory) {
+          performance.memory.jsHeapSizeLimit = 0;
+        }
+      ''');
+
       // 加载目标 URL
       final loadUrl = fetch
-          ? '${RegExp(r'http(s?):\/\/.*?(?=\/|$)').allMatches(url).first.group(0).toString()}/favicon.ico'
+          ? '${RegExp(r'http(s?):\/\/.*?(?=\/|$)').allMatches(url).first.group(0).toString()}/favicon.gif'
           : url;
-      debugPrint('{type: load, url: $loadUrl}');
+      debugPrint('{type: load, message: $loadUrl}');
       controller.launch(loadUrl);
 
-      // 等待页面加载完成（可选）
+      // 等待页面加载完成
       final result = await completer.future;
-      controller.evaluateJavaScript('''
-        window.location.href = 'about:blank';
-      ''');
-      // await controller.clearCache();
-      // await controller.dispose();
+      await controller.evaluateJavaScript('localStorage.clear()');
+      await controller.evaluateJavaScript('sessionStorage.clear()');
+      controller.launch('about:blank');
+      controller.close();
       return result;
-      // controller
-      //   ..setBrightness(Brightness.dark)
-      //   ..setApplicationNameForUserAgent(" WebviewExample/1.0.0")
-      //   ..onClose.whenComplete(() {
-      //     debugPrint('on close');
-      //   });
-      // controller.launch('https://flutter.dev/');
-      // controller.addScriptToExecuteOnDocumentCreated(javaScript)
-      // await Future.delayed(const Duration(seconds: 2));
-      // const javaScriptToEval = [
-      //   'eval({"name": "test", "user_agent": navigator.userAgent, "body": document.body.outerHTML})'
-      // ];
-      // for (final javaScript in javaScriptToEval) {
-      //   try {
-      //     final ret = await controller.evaluateJavaScript(javaScript);
-      //     debugPrint('evaluateJavaScript: $ret');
-      //   } catch (e) {
-      //     debugPrint('evaluateJavaScript error: $e \n $javaScript');
-      //   }
-      // }
-      // return Future.value('');
     } catch (e) {
       debugPrint(e.toString());
       return await Future.value('');
