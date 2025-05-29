@@ -188,8 +188,10 @@ class WebviewLinux {
               RegExp(r'url=|player|.php|addons').hasMatch(data['message']) &&
               !RegExp(r'googleads|doubleclick|pagead')
                   .hasMatch(data['message'])) {
-            debugPrint('{type: load, message: ${data['message']}}');
-            controller.launch(data['message']);
+            if (data['message'] != url) {
+              debugPrint('{type: load, message: ${data['message']}}');
+              controller.launch(data['message']);
+            }
           }
         } catch (e) {
           debugPrint('解析资源消息失败: $e');
