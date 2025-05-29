@@ -208,11 +208,12 @@ class WebviewAIM {
                   retry = 10;
                 } else {
                   retry += 1;
+                  await Future.delayed(const Duration(milliseconds: 100));
                 }
               } catch (e) {
                 print(e);
+                await Future.delayed(const Duration(milliseconds: 100));
               }
-              await Future.delayed(const Duration(milliseconds: 100));
             }
             try {
               await controller.runJavaScript(proxyScript);
