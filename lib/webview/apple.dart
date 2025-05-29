@@ -115,28 +115,7 @@ Future<String> aim(String url) async {
             print(e);
           }
         },
-        onPageFinished: (String url) async {
-          try {
-            final result = await controller.runJavaScriptReturningResult('''
-            document.querySelector('#playleft > iframe')?.src || '';
-          ''') as String?;
-
-            if (result != null && result != '' && result.isNotEmpty) {
-              final decoded = Platform.isAndroid ? json.decode(result) : result;
-              final match = RegExp('(?<=url=)http.*?(.mp4\$|.m3u8\$)')
-                  .firstMatch(decoded);
-              if (match != null && !completer.isCompleted) {
-                completer.complete(match.group(0));
-              } else {
-                await controller.loadRequest(Uri.parse(decoded));
-              }
-            }
-          } catch (e) {
-            if (!completer.isCompleted) {
-              completer.completeError(e);
-            }
-          }
-        },
+        onPageFinished: (String url) async {},
       ),
     );
 

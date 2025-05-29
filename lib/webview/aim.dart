@@ -194,10 +194,18 @@ class WebviewAIM {
 
       controller.setNavigationDelegate(
         NavigationDelegate(
-          onProgress: (request) async {},
           onPageStarted: (String url) async {
-            controller.runJavaScript(proxyScript);
-            await controller.runJavaScript(interceptScript);
+            await Future.delayed(const Duration(seconds: 1));
+            try {
+              await controller.runJavaScript(proxyScript);
+            } catch (e) {
+              print(e);
+            }
+            try {
+              await controller.runJavaScript(interceptScript);
+            } catch (e) {
+              print(e);
+            }
           },
         ),
       );
