@@ -48,7 +48,9 @@ Future<String> aim(String url) async {
     controller.setNavigationDelegate(
       NavigationDelegate(
         onPageStarted: (url) async {
-          await controller.runJavaScript('''
+          await Future.delayed(const Duration(seconds: 1));
+          try {
+            await controller.runJavaScript('''
               Interceptor.postMessage('Interceptor.postMessage 监听所有资源加载 onPageStarted');
               (function () {
                 var observer = new PerformanceObserver(function (list) {
@@ -62,7 +64,11 @@ Future<String> aim(String url) async {
                 observer.observe({ entryTypes: ['resource'] });
               })();
             ''');
-          await controller.runJavaScript('''
+          } catch (e) {
+            print(e);
+          }
+          try {
+            await controller.runJavaScript('''
               Interceptor.postMessage('Interceptor.postMessage FETCH请求 onPageStarted');
               (function () {
                 var originalFetch = window.fetch;
@@ -75,7 +81,12 @@ Future<String> aim(String url) async {
                 };
               })();
             ''');
-          await controller.runJavaScript('''
+          } catch (e) {
+            print(e);
+          }
+
+          try {
+            await controller.runJavaScript('''
               Interceptor.postMessage('Interceptor.postMessage XHR');
               (function () {
                 var originalXHROpen = XMLHttpRequest.prototype.open;
@@ -100,6 +111,9 @@ Future<String> aim(String url) async {
                 };
               })();
             ''');
+          } catch (e) {
+            print(e);
+          }
         },
         onPageFinished: (String url) async {
           try {
