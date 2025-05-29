@@ -45,14 +45,14 @@ jobs:
           flutter run -d macos &
           FLUTTER_PID=$!
           
-          echo "等待30秒让应用启动..."
-          sleep 30
+          for i in {1..10}; do
+            echo "wait 30s...(screenshot $i/10)"
+            sleep 30
+            echo "screenshot-$i.png"
+            screencapture -x "screenshot-$i.png"
+          done
           
-          echo "正在截图..."
-          # 使用macOS自带命令截图
-          screencapture -x screenshot.png
-          
-          echo "停止Flutter应用..."
+          echo "stop..."
           kill $FLUTTER_PID || true
           
       # 上传截图
@@ -60,6 +60,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: macos-app-screenshot
-          path: screenshot.png
+          path: screenshot-*.png
       # 完成
       - run: echo "🍏 This job's status is ${{ job.status }}."
