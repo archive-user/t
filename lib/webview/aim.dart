@@ -197,39 +197,22 @@ class WebviewAIM {
       controller.setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (String url) async {
-            // await Future.delayed(const Duration(milliseconds: 100));
-            int retry = 0;
-            while (retry < 10) {
-              try {
-                final result = await controller.runJavaScriptReturningResult('''
-                  document || window || '';
-                ''') as String?;
-                if (result != null && result != '' && result.isNotEmpty) {
-                  retry = 10;
-                } else {
-                  retry += 1;
-                  await Future.delayed(const Duration(milliseconds: 100));
-                }
-              } catch (e) {
-                print(e);
-                await Future.delayed(const Duration(milliseconds: 100));
-              }
-            }
+            await Future.delayed(const Duration(seconds: 1));
             try {
               await controller.runJavaScript(proxyScript);
             } catch (e) {
-              print(e);
+              debugPrint(e.toString());
             }
             try {
               await controller.runJavaScript(interceptScript);
             } catch (e) {
-              print(e);
+              debugPrint(e.toString());
             }
           },
         ),
       );
 
-      controller.runJavaScript('''
+      await controller.runJavaScript('''
         if (window.performance && performance.memory) {
           performance.memory.jsHeapSizeLimit = 0;
         }
