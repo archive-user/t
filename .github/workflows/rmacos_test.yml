@@ -44,8 +44,8 @@ jobs:
         run: |
           flutter run -d macos &
           FLUTTER_PID=$!
-          sleep 60
-          for i in {1..30}; do
+          sleep 30
+          for i in {1..60}; do
             echo "wait 1s...(screenshot $i)"
             sleep 1
             echo "screenshot-$i.png"

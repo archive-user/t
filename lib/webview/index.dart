@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:livech/webview/aim.dart';
+import 'package:livech/webview/apple.dart';
 import 'package:livech/webview/linux.dart';
 import 'package:livech/webview/windows.dart';
 
@@ -19,8 +20,11 @@ class Webview {
       } else if (Platform.isWindows) {
         return WebviewWindows.getVod(url,
             onResourceLoaded: onResourceLoaded, fetch: fetch, regexp: regexp);
-      } else {
+      } else if (Platform.isAndroid) {
         return WebviewAIM.getVod(url,
+            onResourceLoaded: onResourceLoaded, fetch: fetch, regexp: regexp);
+      } else {
+        return WebviewApple.getVod(url,
             onResourceLoaded: onResourceLoaded, fetch: fetch, regexp: regexp);
       }
     } catch (e) {

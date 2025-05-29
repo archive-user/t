@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -150,10 +149,8 @@ class WebviewAIM {
         'Interceptor',
         onMessageReceived: (JavaScriptMessage message) async {
           try {
-            debugPrint('Resource: ${message.message}');
-            final data = Platform.isAndroid
-                ? json.decode(message.message)
-                : message.message;
+            final data = json.decode(message.message);
+            debugPrint(data.toString());
             if (onResourceLoaded != null) {
               onResourceLoaded(data);
             }
