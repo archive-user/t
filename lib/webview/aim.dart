@@ -200,15 +200,19 @@ class WebviewAIM {
             // await Future.delayed(const Duration(milliseconds: 100));
             int retry = 0;
             while (retry < 10) {
-              final result = await controller.runJavaScriptReturningResult('''
-                document || window || '';
-              ''') as String?;
-              if (result != null && result != '' && result.isNotEmpty) {
-                retry = 10;
-              } else {
-                retry += 1;
-                await Future.delayed(const Duration(milliseconds: 100));
+              try {
+                final result = await controller.runJavaScriptReturningResult('''
+                  document || window || '';
+                ''') as String?;
+                if (result != null && result != '' && result.isNotEmpty) {
+                  retry = 10;
+                } else {
+                  retry += 1;
+                }
+              } catch (e) {
+                print(e);
               }
+              await Future.delayed(const Duration(milliseconds: 100));
             }
             try {
               await controller.runJavaScript(proxyScript);
@@ -224,7 +228,7 @@ class WebviewAIM {
         ),
       );
 
-      await controller.runJavaScript('''
+      controller.runJavaScript('''
         if (window.performance && performance.memory) {
           performance.memory.jsHeapSizeLimit = 0;
         }
