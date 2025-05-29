@@ -180,8 +180,10 @@ class WebviewAIM {
                 RegExp(r'url=|player|.php|addons').hasMatch(data['message']) &&
                 !RegExp(r'googleads|doubleclick|pagead')
                     .hasMatch(data['message'])) {
-              debugPrint('{type: load, message: ${data['message']}}');
-              controller.loadRequest(Uri.parse(data['message']));
+              if (data['message'] != url) {
+                debugPrint('{type: load, message: ${data['message']}}');
+                controller.loadRequest(Uri.parse(data['message']));
+              }
             }
           } catch (e) {
             debugPrint('解析资源消息失败: $e');
@@ -195,7 +197,7 @@ class WebviewAIM {
       controller.setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (String url) async {
-            await Future.delayed(const Duration(seconds: 1));
+            await Future.delayed(const Duration(milliseconds: 100));
             try {
               await controller.runJavaScript(proxyScript);
             } catch (e) {

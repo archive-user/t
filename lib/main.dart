@@ -86,7 +86,7 @@ class _WebViewExampleState extends State<WebViewExample> {
     Webview.getVod(
       'https://anime.girigirilove.com/playGV26394-1-1/',
       regexp: r'(?<=url=)https:\/\/.*?.m3u8',
-      fetch: true,
+      fetch: false,
       onResourceLoaded: (message) {
         setState(() {
           final shortMessage = message['message']?.toString() ?? '';
@@ -105,7 +105,7 @@ class _WebViewExampleState extends State<WebViewExample> {
     Webview.getVod(
       'https://dm.xifanacg.com/watch/3158/1/1.html',
       regexp: r'(?<=url=)https:\/\/.*?.mp4',
-      fetch: false,
+      fetch: true,
       onResourceLoaded: (message) {
         setState(() {
           final shortMessage = message['message']?.toString() ?? '';
