@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -197,7 +198,9 @@ class WebviewAIM {
       controller.setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (String url) async {
-            await Future.delayed(const Duration(seconds: 1));
+            if (Platform.isIOS || Platform.isMacOS) {
+              await Future.delayed(const Duration(seconds: 1));
+            }
             try {
               await controller.runJavaScript(proxyScript);
             } catch (e) {
