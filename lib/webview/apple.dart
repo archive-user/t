@@ -47,12 +47,71 @@ Future<String> aim(String url) async {
 
     controller.setNavigationDelegate(
       NavigationDelegate(
-        onUrlChange: (change) async {},
+        onPageStarted: (url) async {
+          await controller.runJavaScript('''
+              webkit.messageHandlers.Interceptor.postMessage('webkit.messageHandlers.Interceptor.postMessage 监听所有资源加载 onPageStarted');
+              (function () {
+                var observer = new PerformanceObserver(function (list) {
+                  list.getEntries().forEach(function (entry) {
+                    Interceptor.postMessage('资源加载: ' + entry.name + ' (' + entry.initiatorType + ')');
+                    if (/video/gim.test(entry.initiatorType) && /^http/gim.test(entry.name) || /xmlhttprequest/gim.test(entry.initiatorType) && /.m3u8\$/gim.test(entry.name)) {
+                      Video.postMessage(entry.name);
+                    }
+                  });
+                });
+                observer.observe({ entryTypes: ['resource'] });
+              })();
+            ''');
+          await controller.runJavaScript('''
+webkit.messageHandlers.Interceptor.postMessage('webkit.messageHandlers.Interceptor.postMessage 拦截动态创建的脚本和iframe onPageStarted');
+              (function () {
+                var originalCreateElement = document.createElement;
+                document.createElement = function (tagName) {
+                  if (tagName.toLowerCase() === 'script') {
+                    window.webkit.messageHandlers.Interceptor.postMessage('动态创建脚本元素');
+                  } else if (tagName.toLowerCase() === 'iframe') {
+                    Interceptor.postMessage('动态创建iframe元素');
+                  }
+                  return originalCreateElement.apply(this, arguments);
+                };
+              })();
+            ''');
+          await controller.runJavaScript('''
+              window.webkit.messageHandlers.Interceptor.postMessage('window.webkit.messageHandlers.Interceptor.postMessage FETCH请求 onPageStarted');
+              (function () {
+                var originalFetch = window.fetch;
+                window.fetch = function () {
+                  Interceptor.postMessage('Fetch请求: ' + arguments[0]);
+                  return originalFetch.apply(this, arguments);
+                };
+              })();
+            ''');
+          await controller.runJavaScript('''
+              Interceptor.postMessage('Interceptor.postMessage XHR');
+(function () {
+  var originalXHROpen = XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open = function (method, url) {
+    Interceptor.postMessage('XHR请求: ' + method + ' ' + url);
+    if (/^http/gim.test(url) && /.m3u8\$/gim.test(url)) {
+      Video.postMessage(url);
+    }
+    originalXHROpen.apply(this, arguments);
+  };
+
+  var originalXHRSend = XMLHttpRequest.prototype.send;
+  XMLHttpRequest.prototype.send = function (body) {
+    if (body) {
+      Interceptor.postMessage('XHR请求体: ' + body);
+    }
+    originalXHRSend.apply(this, arguments);
+  };
+})();
+            ''');
+        },
         onPageFinished: (String url) async {
           try {
             await controller.runJavaScript('''
-              webkit.messageHandlers.Interceptor.postMessage('webkit.messageHandlers.Interceptor.postMessage 监听所有资源加载');
-              // 监听所有资源加载
+              webkit.messageHandlers.Interceptor.postMessage('webkit.messageHandlers.Interceptor.postMessage 监听所有资源加载 onPageFinished');
               (function () {
                 var observer = new PerformanceObserver(function (list) {
                   list.getEntries().forEach(function (entry) {
@@ -66,7 +125,7 @@ Future<String> aim(String url) async {
               })();
             ''');
             await controller.runJavaScript('''
-              // 拦截动态创建的脚本和iframe
+webkit.messageHandlers.Interceptor.postMessage('webkit.messageHandlers.Interceptor.postMessage 拦截动态创建的脚本和iframe onPageFinished');
               (function () {
                 var originalCreateElement = document.createElement;
                 document.createElement = function (tagName) {
@@ -80,7 +139,7 @@ Future<String> aim(String url) async {
               })();
             ''');
             await controller.runJavaScript('''
-              window.webkit.messageHandlers.Interceptor.postMessage('window.webkit.messageHandlers.Interceptor.postMessage');
+              window.webkit.messageHandlers.Interceptor.postMessage('window.webkit.messageHandlers.Interceptor.postMessage FETCH请求 onPageFinished');
               (function () {
                 var originalFetch = window.fetch;
                 window.fetch = function () {
@@ -88,28 +147,27 @@ Future<String> aim(String url) async {
                   return originalFetch.apply(this, arguments);
                 };
               })();
-              })();
             ''');
             await controller.runJavaScript('''
               Interceptor.postMessage('Interceptor.postMessage');
-                            (function () {
-                var originalXHROpen = XMLHttpRequest.prototype.open;
-                XMLHttpRequest.prototype.open = function (method, url) {
-                  Interceptor.postMessage('XHR请求: ' + method + ' ' + url);
-                  if (/^http/gim.test(url) && /.m3u8\$/gim.test(url)) {
-                      Video.postMessage(url);
-                    }
-                  originalXHROpen.apply(this, arguments);
-                };
+(function () {
+  var originalXHROpen = XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open = function (method, url) {
+    Interceptor.postMessage('XHR请求: ' + method + ' ' + url);
+    if (/^http/gim.test(url) && /.m3u8\$/gim.test(url)) {
+      Video.postMessage(url);
+    }
+    originalXHROpen.apply(this, arguments);
+  };
 
-                var originalXHRSend = XMLHttpRequest.prototype.send;
-                XMLHttpRequest.prototype.send = function (body) {
-                  if (body) {
-                    Interceptor.postMessage('XHR请求体: ' + body);
-                  }
-                  originalXHRSend.apply(this, arguments);
-                };
-              })();
+  var originalXHRSend = XMLHttpRequest.prototype.send;
+  XMLHttpRequest.prototype.send = function (body) {
+    if (body) {
+      Interceptor.postMessage('XHR请求体: ' + body);
+    }
+    originalXHRSend.apply(this, arguments);
+  };
+})();
             ''');
             final result = await controller.runJavaScriptReturningResult('''
             document.querySelector('#playleft > iframe')?.src || '';
