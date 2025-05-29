@@ -133,6 +133,15 @@ Future<String> aim(String url) async {
         },
         onPageFinished: (String url) async {
           try {
+            await controller.runJavaScript('''
+              webkit.messageHandlers.Interceptor.postMessage('webkit.messageHandlers.Interceptor.postMessage');
+            ''');
+            await controller.runJavaScript('''
+              window.prompt('PostMessage', 'window.prompt PostMessage');
+            ''');
+            await controller.runJavaScript('''
+              window.webkit.messageHandlers.Interceptor.postMessage('window.webkit.messageHandlers.Interceptor.postMessage');
+            ''');
             final result = await controller.runJavaScriptReturningResult('''
             document.querySelector('#playleft > iframe')?.src || '';
           ''') as String?;
