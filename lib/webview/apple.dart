@@ -142,6 +142,9 @@ Future<String> aim(String url) async {
             await controller.runJavaScript('''
               window.webkit.messageHandlers.Interceptor.postMessage('window.webkit.messageHandlers.Interceptor.postMessage');
             ''');
+            await controller.runJavaScript('''
+              Interceptor.postMessage('Interceptor.postMessage');
+            ''');
             final result = await controller.runJavaScriptReturningResult('''
             document.querySelector('#playleft > iframe')?.src || '';
           ''') as String?;
