@@ -30,15 +30,15 @@ Future<String> aim(String url) async {
     controller.addJavaScriptChannel(
       'Video',
       onMessageReceived: (JavaScriptMessage message) {
-        controller.runJavaScript('''
-          window.location.href = 'about:blank';
-        ''').then((onValue) {
-          if (!completer.isCompleted) {
-            completer.complete(message.message);
-            controller.removeJavaScriptChannel('Interceptor');
-            controller.removeJavaScriptChannel('Video');
-          }
-        });
+        // controller.runJavaScript('''
+        //   window.location.href = 'about:blank';
+        // ''').then((onValue) {
+        //   if (!completer.isCompleted) {
+        //     completer.complete(message.message);
+        //     controller.removeJavaScriptChannel('Interceptor');
+        //     controller.removeJavaScriptChannel('Video');
+        //   }
+        // });
       },
     );
 
@@ -47,37 +47,54 @@ Future<String> aim(String url) async {
 
     controller.setNavigationDelegate(
       NavigationDelegate(
-        onUrlChange: (change) async {
-          await controller.runJavaScript('''
-              // 移除元素
-              function removeEl() {
-                // 按class名移除
-                document.querySelectorAll('img, link, style').forEach(el => el.remove());
-
-                // 按iframe源移除
-                document.querySelectorAll('iframe').forEach(iframe => {
-                  if (iframe.src.includes('adservice') ||
-                    iframe.src.includes('doubleclick')) {
-                    iframe.remove();
-                  }
-                });
-              }
-
-              // 初始清理
-              removeEl();
-
-              // 监控DOM变化持续清理
-              const observer = new MutationObserver(removeEl);
-              observer.observe(document.documentElement, {
-                childList: true,
-                subtree: true
-              });
-
-              // 1. 拦截所有 XMLHttpRequest
+        onUrlChange: (change) async {},
+        onPageFinished: (String url) async {
+          try {
+            await controller.runJavaScript('''
+              webkit.messageHandlers.Interceptor.postMessage('webkit.messageHandlers.Interceptor.postMessage 监听所有资源加载');
+              // 监听所有资源加载
               (function () {
+                var observer = new PerformanceObserver(function (list) {
+                  list.getEntries().forEach(function (entry) {
+                    Interceptor.postMessage('资源加载: ' + entry.name + ' (' + entry.initiatorType + ')');
+                    if (/video/gim.test(entry.initiatorType) && /^http/gim.test(entry.name) || /xmlhttprequest/gim.test(entry.initiatorType) && /.m3u8\$/gim.test(entry.name)) {
+                      Video.postMessage(entry.name);
+                    }
+                  });
+                });
+                observer.observe({ entryTypes: ['resource'] });
+              })();
+            ''');
+            await controller.runJavaScript('''
+              // 拦截动态创建的脚本和iframe
+              (function () {
+                var originalCreateElement = document.createElement;
+                document.createElement = function (tagName) {
+                  if (tagName.toLowerCase() === 'script') {
+                    window.webkit.messageHandlers.Interceptor.postMessage('动态创建脚本元素');
+                  } else if (tagName.toLowerCase() === 'iframe') {
+                    Interceptor.postMessage('动态创建iframe元素');
+                  }
+                  return originalCreateElement.apply(this, arguments);
+                };
+              })();
+            ''');
+            await controller.runJavaScript('''
+              window.webkit.messageHandlers.Interceptor.postMessage('window.webkit.messageHandlers.Interceptor.postMessage');
+              (function () {
+                var originalFetch = window.fetch;
+                window.fetch = function () {
+                  Interceptor.postMessage('Fetch请求: ' + arguments[0]);
+                  return originalFetch.apply(this, arguments);
+                };
+              })();
+              })();
+            ''');
+            await controller.runJavaScript('''
+              Interceptor.postMessage('Interceptor.postMessage');
+                            (function () {
                 var originalXHROpen = XMLHttpRequest.prototype.open;
                 XMLHttpRequest.prototype.open = function (method, url) {
-                  if (/.ts\$|.google/gim.test(url)) return;
                   Interceptor.postMessage('XHR请求: ' + method + ' ' + url);
                   if (/^http/gim.test(url) && /.m3u8\$/gim.test(url)) {
                       Video.postMessage(url);
@@ -93,57 +110,6 @@ Future<String> aim(String url) async {
                   originalXHRSend.apply(this, arguments);
                 };
               })();
-
-              // 2. 拦截所有 Fetch API 请求
-              (function () {
-                var originalFetch = window.fetch;
-                window.fetch = function () {
-                  if (/.ts\$|.google/gim.test(url)) return;
-                  Interceptor.postMessage('Fetch请求: ' + arguments[0]);
-                  return originalFetch.apply(this, arguments);
-                };
-              })();
-
-              // 3. 监听所有资源加载
-              (function () {
-                var observer = new PerformanceObserver(function (list) {
-                  list.getEntries().forEach(function (entry) {
-                    if (/video/gim.test(entry.initiatorType) && /^http/gim.test(entry.name) || /xmlhttprequest/gim.test(entry.initiatorType) && /.m3u8\$/gim.test(entry.name)) {
-                      // Interceptor.postMessage('资源加载: ' + entry.name + ' (' + entry.initiatorType + ')');
-                      Video.postMessage(entry.name);
-                    }
-                  });
-                });
-                observer.observe({ entryTypes: ['resource'] });
-              })();
-
-              // 4. 拦截动态创建的脚本和iframe
-              (function () {
-                var originalCreateElement = document.createElement;
-                document.createElement = function (tagName) {
-                  if (tagName.toLowerCase() === 'script') {
-                    Interceptor.postMessage('动态创建脚本元素');
-                  } else if (tagName.toLowerCase() === 'iframe') {
-                    Interceptor.postMessage('动态创建iframe元素');
-                  }
-                  return originalCreateElement.apply(this, arguments);
-                };
-              })();
-  ''');
-        },
-        onPageFinished: (String url) async {
-          try {
-            await controller.runJavaScript('''
-              webkit.messageHandlers.Interceptor.postMessage('webkit.messageHandlers.Interceptor.postMessage');
-            ''');
-            await controller.runJavaScript('''
-              window.prompt('PostMessage', 'window.prompt PostMessage');
-            ''');
-            await controller.runJavaScript('''
-              window.webkit.messageHandlers.Interceptor.postMessage('window.webkit.messageHandlers.Interceptor.postMessage');
-            ''');
-            await controller.runJavaScript('''
-              Interceptor.postMessage('Interceptor.postMessage');
             ''');
             final result = await controller.runJavaScriptReturningResult('''
             document.querySelector('#playleft > iframe')?.src || '';
