@@ -13,12 +13,12 @@ jobs:
     runs-on: macos-latest
     permissions: write-all
     steps:
-      #签出代码 
+      # 签出代码 
       - uses: actions/checkout@v4
         with:
           ref: main
 
-      #设置Flutter
+      # 设置Flutter
       - name: Flutter action
         uses: subosito/flutter-action@v2
         with:
@@ -30,7 +30,7 @@ jobs:
       - name: Enable Flutter Desktop
         run: flutter config --enable-macos-desktop
 
-      #更新Flutter的packages
+      # 更新Flutter的packages
       - name: Restore packages
         run: |
           flutter pub get
@@ -42,7 +42,24 @@ jobs:
       # 运行
       - name: Run MacOS
         run: |
-          flutter run -d macos
-
-      #完成
+          flutter run -d macos &
+          FLUTTER_PID=$!
+          
+          echo "等待30秒让应用启动..."
+          sleep 30
+          
+          echo "正在截图..."
+          # 使用macOS自带命令截图
+          screencapture -x screenshot.png
+          
+          echo "停止Flutter应用..."
+          kill $FLUTTER_PID || true
+          
+      # 上传截图
+      - name: Upload screenshot
+        uses: actions/upload-artifact@v3
+        with:
+          name: macos-app-screenshot
+          path: screenshot.png
+      # 完成
       - run: echo "🍏 This job's status is ${{ job.status }}."
